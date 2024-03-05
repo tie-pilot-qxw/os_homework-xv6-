@@ -288,6 +288,9 @@ fork(void)
     return -1;
   }
 
+  // Copy the trace mask from parent to child.
+  np->mask = p->mask;
+
   // Copy user memory from parent to child.
   if(uvmcopy(p->pagetable, np->pagetable, p->sz) < 0){
     freeproc(np);
@@ -685,4 +688,13 @@ procdump(void)
     printf("%d %s %s", p->pid, state, p->name);
     printf("\n");
   }
+}
+
+// Tracing the system calls.
+// Using the mask to identify the calls to be traced.
+int
+trace(int mask) {
+  struct proc *p = myproc();
+  p->mask = mask;
+  return 0;
 }

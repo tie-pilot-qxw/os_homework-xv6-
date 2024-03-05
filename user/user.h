@@ -25,6 +25,7 @@ int dup(int);
 int getpid(void);
 char* sbrk(int);
 int sleep(int);
+int trace(int);
 int uptime(void);
 #ifdef LAB_NET
 int connect(uint32, uint16, uint16);
