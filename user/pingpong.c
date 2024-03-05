@@ -14,9 +14,11 @@ main(int argc, char *argv[])
     int pid = fork();
     if(pid > 0){
         if (write(p[1], "ping", sizeof("ping")) != sizeof("ping")){
+            close(p[1]);
             fprintf(2,"write error\n");
             exit(1);
         }
+        close(p[1]);
         if (read(p[0], buf, sizeof("pong")) < 0){
             fprintf(2,"read error\n");
             exit(1);
@@ -30,9 +32,11 @@ main(int argc, char *argv[])
         }
         printf("%d:received %s\n", getpid(), buf);
         if (write(p[1], "pong", sizeof("pong")) != sizeof("pong")) {
+            close(p[1]);
             fprintf(2,"write error\n");
             exit(1);
         }
+        close(p[1]);
         exit(0);
     } else {
         printf("fork error\n");
