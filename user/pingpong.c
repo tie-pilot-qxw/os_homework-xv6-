@@ -23,14 +23,14 @@ main(int argc, char *argv[])
             fprintf(2,"read error\n");
             exit(1);
         }
-        printf("%d:received %s\n", getpid(), buf);
+        printf("%d: received %s\n", getpid(), buf);
         pid = wait((int *) 0);
     } else if(pid == 0){
         if (read(p[0], buf, sizeof(buf)) < 0) {
             fprintf(2, "read error\n");
             exit(1);
         }
-        printf("%d:received %s\n", getpid(), buf);
+        printf("%d: received %s\n", getpid(), buf);
         if (write(p[1], "pong", sizeof("pong")) != sizeof("pong")) {
             close(p[1]);
             fprintf(2,"write error\n");
