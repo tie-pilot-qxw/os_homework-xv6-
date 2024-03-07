@@ -25,6 +25,10 @@ int dup(int);
 int getpid(void);
 char* sbrk(int);
 int sleep(int);
+
+struct sysinfo;
+int sysinfo(struct sysinfo *);
+
 int trace(int);
 int uptime(void);
 #ifdef LAB_NET

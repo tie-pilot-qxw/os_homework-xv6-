@@ -21,15 +21,19 @@ main(int argc, char *argv[])
         close(p[1]);
         if (read(p[0], buf, sizeof("pong")) < 0){
             fprintf(2,"read error\n");
+            close(p[0]);
             exit(1);
         }
+        close(p[0]);
         printf("%d: received %s\n", getpid(), buf);
         pid = wait((int *) 0);
     } else if(pid == 0){
         if (read(p[0], buf, sizeof(buf)) < 0) {
             fprintf(2, "read error\n");
             exit(1);
+            close(p[0]);
         }
+        close(p[0]);
         printf("%d: received %s\n", getpid(), buf);
         if (write(p[1], "pong", sizeof("pong")) != sizeof("pong")) {
             close(p[1]);
@@ -41,7 +45,5 @@ main(int argc, char *argv[])
     } else {
         printf("fork error\n");
     }
-    close(p[0]);
-    close(p[1]);
     exit(0);
 }

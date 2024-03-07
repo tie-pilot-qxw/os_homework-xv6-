@@ -4,6 +4,7 @@
 #include "riscv.h"
 #include "spinlock.h"
 #include "proc.h"
+#include "sysinfo.h"
 #include "defs.h"
 
 struct cpu cpus[NCPU];
@@ -696,5 +697,20 @@ int
 trace(int mask) {
   struct proc *p = myproc();
   p->mask = mask;
+  return 0;
+}
+
+// Get the sysinfo and copy it to user space.
+int
+sysinfo(uint64 addr) {
+  struct proc *p, *mp = myproc();
+  struct sysinfo info;
+  info.nproc = 0;
+  info.freemem = kcollect();
+  for(p = proc; p < &proc[NPROC]; p++){
+    if(p->state != UNUSED) info.nproc++;
+  }
+  if(copyout(mp->pagetable, addr, (char *)&info, sizeof(info)) < 0)
+    return -1;
   return 0;
 }
