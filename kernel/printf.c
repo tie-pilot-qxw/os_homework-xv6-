@@ -133,3 +133,20 @@ printfinit(void)
   initlock(&pr.lock, "pr");
   pr.locking = 1;
 }
+
+// print the saved return address in each stack frame
+void backtrace(void)
+{
+  printf("backtrace:\n");
+
+  uint64 fp = r_fp(); // frame pointer
+  uint64 next_fp = *((uint64*)(fp - 16)); // next frame pointer
+  uint64 ra = *((uint64*)(fp - 8)); // return address
+  while(PGROUNDDOWN(fp) == PGROUNDDOWN(next_fp)) {
+    printf("%p\n", ra);
+    fp = next_fp;
+    next_fp = *((uint64*)(fp - 16));
+    ra = *((uint64*)(fp - 8));
+  }
+  printf("%p\n", ra);
+}
