@@ -147,6 +147,14 @@ found:
   p->context.ra = (uint64)forkret;
   p->context.sp = p->kstack + PGSIZE;
 
+  // initialize the mask
+  p->mask = 0;
+
+  // initialize the signal alarm
+  p->ticks = 0;
+  p->handler = 0;
+  p->tickspassed = 0;
+
   return p;
 }
 
@@ -712,5 +720,16 @@ sysinfo(uint64 addr) {
   }
   if(copyout(mp->pagetable, addr, (char *)&info, sizeof(info)) < 0)
     return -1;
+  return 0;
+}
+
+// Set the alarm
+int sigalarm(int ticks, void (*handler)()) {
+  struct proc *p = myproc();
+  if (ticks == 0 && handler == 0) {
+    return -1;
+  }
+  p->ticks = ticks;
+  p->handler = handler;
   return 0;
 }

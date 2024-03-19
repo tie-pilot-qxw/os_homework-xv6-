@@ -25,6 +25,8 @@ int dup(int);
 int getpid(void);
 char* sbrk(int);
 int sleep(int);
+int sigalarm(int ticks, void (*handler)());
+int sigreturn(void);
 
 struct sysinfo;
 int sysinfo(struct sysinfo *);

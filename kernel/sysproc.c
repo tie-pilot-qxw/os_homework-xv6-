@@ -120,3 +120,19 @@ sys_sysinfo (void)
   argaddr(0,&p);
   return sysinfo(p);
 }
+
+uint64
+sys_sigalarm(void)
+{
+  int ticks;
+  uint64 handler;
+  argint(0, &ticks);
+  argaddr(1, &handler);
+  return sigalarm(ticks, (void (*)(void))handler);
+}
+
+uint64
+sys_sigreturn(void)
+{
+  return 0;
+}
