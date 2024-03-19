@@ -154,6 +154,7 @@ found:
   p->ticks = 0;
   p->handler = 0;
   p->tickspassed = 0;
+  p->alarmFlag = 0;
 
   return p;
 }
@@ -724,12 +725,26 @@ sysinfo(uint64 addr) {
 }
 
 // Set the alarm
-int sigalarm(int ticks, void (*handler)()) {
+int
+sigalarm(int ticks, uint64 handler) {
   struct proc *p = myproc();
   if (ticks == 0 && handler == 0) {
     return -1;
   }
   p->ticks = ticks;
   p->handler = handler;
+  return 0;
+}
+
+// return from the alarm handler
+int
+sigreturn(void) {
+  struct proc *p = myproc();
+  if(!p->alarmFlag) {
+    return -1;
+  }
+  p->alarmFlag = 0;
+  *p->trapframe = p->preAlarmTf;
+  usertrapret();
   return 0;
 }

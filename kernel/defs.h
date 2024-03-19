@@ -119,7 +119,8 @@ int             either_copyin(void *dst, int user_src, uint64 src, uint64 len);
 void            procdump(void);
 int             trace(int);
 int             sysinfo(uint64 addr);
-int             sigalarm(int ticks, void (*handler)());
+int             sigalarm(int ticks, uint64 handler);
+int             sigreturn(void);
 
 // swtch.S
 void            swtch(struct context*, struct context*);

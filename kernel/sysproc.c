@@ -128,11 +128,11 @@ sys_sigalarm(void)
   uint64 handler;
   argint(0, &ticks);
   argaddr(1, &handler);
-  return sigalarm(ticks, (void (*)(void))handler);
+  return sigalarm(ticks, handler);
 }
 
 uint64
 sys_sigreturn(void)
 {
-  return 0;
+  return sigreturn();
 }
