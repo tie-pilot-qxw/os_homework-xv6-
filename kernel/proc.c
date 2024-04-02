@@ -133,6 +133,13 @@ found:
     return 0;
   }
 
+  // Allocate a preAlarmTf page.
+  if((p->preAlarmTf = (struct trapframe *)kalloc()) == 0){
+    freeproc(p);
+    release(&p->lock);
+    return 0;
+  }
+
   // An empty user page table.
   p->pagetable = proc_pagetable(p);
   if(p->pagetable == 0){
@@ -167,6 +174,9 @@ freeproc(struct proc *p)
 {
   if(p->trapframe)
     kfree((void*)p->trapframe);
+  if(p->preAlarmTf)
+    kfree((void*)p->preAlarmTf);
+  p->preAlarmTf = 0;
   p->trapframe = 0;
   if(p->pagetable)
     proc_freepagetable(p->pagetable, p->sz);
@@ -311,6 +321,9 @@ fork(void)
 
   // copy saved user registers.
   *(np->trapframe) = *(p->trapframe);
+
+  // copy the preAlarmTf
+  *(np->preAlarmTf) = *(p->preAlarmTf);
 
   // Cause fork to return 0 in the child.
   np->trapframe->a0 = 0;
@@ -744,7 +757,7 @@ sigreturn(void) {
     return -1;
   }
   p->alarmFlag = 0;
-  *p->trapframe = p->preAlarmTf;
+  *p->trapframe = *p->preAlarmTf;
   usertrapret();
   return 0;
 }

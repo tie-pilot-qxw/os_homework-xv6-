@@ -82,7 +82,7 @@ usertrap(void)
       p->tickspassed++;
       if(p->tickspassed >= p->ticks && !p->alarmFlag) {
         p->tickspassed -= p->ticks;
-        p->preAlarmTf = *p->trapframe;
+        *p->preAlarmTf = *p->trapframe;
         p->alarmFlag = 1;
         p->trapframe->epc = p->handler;
       }
