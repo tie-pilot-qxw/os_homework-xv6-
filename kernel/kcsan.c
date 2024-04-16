@@ -29,7 +29,7 @@
 #define MAXTRACE 20
 
 int
-trace(uint64 *trace, int maxtrace)
+trace_kcsan(uint64 *trace, int maxtrace)
 {
   uint64 i = 0;
   
@@ -83,7 +83,7 @@ wp_install(uint64 addr, int write)
     if(w->addr == 0) {
       w->addr = addr;
       w->write = write;
-      w->tracesz = trace(w->trace, MAXTRACE);
+      w->tracesz = trace_kcsan(w->trace, MAXTRACE);
       return 1;
     }
   }
@@ -119,7 +119,7 @@ race(char *s, struct watch *w) {
   uint64 t[MAXTRACE];
   int n;
   
-  n = trace(t, MAXTRACE);
+  n = trace_kcsan(t, MAXTRACE);
   printf("== race detected ==\n");
   printf("backtrace for racing %s\n", s);
   printtrace(t, n);

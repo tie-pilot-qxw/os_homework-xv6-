@@ -173,9 +173,9 @@ static void
 freeproc(struct proc *p)
 {
   if(p->trapframe)
-    kfree((void*)p->trapframe);
+    kfree((void*)p->trapframe, -1);
   if(p->preAlarmTf)
-    kfree((void*)p->preAlarmTf);
+    kfree((void*)p->preAlarmTf, -1);
   p->preAlarmTf = 0;
   p->trapframe = 0;
   if(p->pagetable)
