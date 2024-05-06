@@ -110,4 +110,6 @@ struct proc {
   int tickspassed;             // The ticks passed after the alarm was set
   int alarmFlag;               // Set to be true when the process is in the alarm handler
   struct trapframe *preAlarmTf; // The trapframe before the alarm handler is called
+
+  struct usyscall *usyscallpage;        // share page for usyscall
 };
