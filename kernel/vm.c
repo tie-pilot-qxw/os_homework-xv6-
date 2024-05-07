@@ -5,6 +5,8 @@
 #include "riscv.h"
 #include "defs.h"
 #include "fs.h"
+#include "spinlock.h"
+#include "proc.h"
 
 /*
  * the kernel's page table.
@@ -448,4 +450,51 @@ copyinstr(pagetable_t pagetable, char *dst, uint64 srcva, uint64 max)
   } else {
     return -1;
   }
+}
+
+// Recursively print page-table pages.
+void
+vmprint(pagetable_t pagetable)
+{
+  static int level = 0;
+  if(level == 0) {
+    printf("page table %p\n", pagetable);
+  }
+  // there are 2^9 = 512 PTEs in a page table.
+  for(int i = 0; i < 512; i++){
+    pte_t pte = pagetable[i];
+    if(pte & PTE_V){
+      uint64 pa = PTE2PA(pte);
+      for(int i = 0; i <= level; i++){
+        printf(" ..");
+      }
+      printf("%d: pte %p pa %p\n", i, pte, pa);
+      if ((pte & (PTE_R|PTE_W|PTE_X)) == 0){
+        // this PTE points to a lower-level page table.
+        uint64 child = PTE2PA(pte);
+        level++;
+        vmprint((pagetable_t)child);
+        level--;
+      }
+    }
+  }
+}
+
+// check the access bit of page table
+int
+pgaccess(void *base, int len, void *mask)
+{
+  struct proc *p = myproc();
+  uint64 va = (uint64)base, ans = 0;
+  for(int i = 0; i < len; i++, va += PGSIZE) {
+    pte_t *pte = walk(p->pagetable, va, 0);
+    if(*pte & PTE_A) {
+      ans |= 1 << i;
+    }
+    *pte = (((*pte) & (1 << 6)) ^ (*pte)) ^ (0 << 6); // clear the access bit
+  }
+  if(copyout(p->pagetable, (uint64)mask, (char *)&ans, sizeof(ans)) < 0) {
+    return -1;
+  }
+  return 0;
 }
