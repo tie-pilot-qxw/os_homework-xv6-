@@ -73,6 +73,7 @@ void*           kalloc(void);
 void            kfree(void *, int);
 void            kinit(void);
 uint64          kcollect(void);
+void            kref(void *);
 
 // log.c
 void            initlog(int, struct superblock*);
@@ -193,7 +194,8 @@ int             copyout(pagetable_t, uint64, char *, uint64);
 int             copyin(pagetable_t, char *, uint64, uint64);
 int             copyinstr(pagetable_t, char *, uint64, uint64);
 void            vmprint(pagetable_t);
-int             pgaccess(void *base, int len, void *mask);
+int             pgaccess(void *, int, void *);
+int             cow(pagetable_t, uint64);
 
 // plic.c
 void            plicinit(void);

@@ -50,7 +50,17 @@ usertrap(void)
   // save user program counter.
   p->trapframe->epc = r_sepc();
   
-  if(r_scause() == 8){
+  if(r_scause() == 15){
+    // Store/AMO page fault
+
+    uint64 va = PGROUNDDOWN(r_stval());
+    if(cow(p->pagetable, va) < 0){
+      printf("usertrap(): unexpected scause %p pid=%d\n", r_scause(), p->pid);
+      printf("            sepc=%p stval=%p\n", r_sepc(), r_stval());
+      setkilled(p);
+    }
+
+  } else if(r_scause() == 8){
     // system call
 
     if(killed(p))

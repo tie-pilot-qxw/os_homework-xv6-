@@ -23,9 +23,20 @@ struct {
   struct run *freelist;
 } kmem[NCPU];
 
+struct {
+  struct spinlock lock;
+  uint32 num;
+} ref[(PHYSTOP  - KERNBASE)>> PGSHIFT]; // reference num of each page
+
+#define PAGEREFID(pa) (((uint64)pa - KERNBASE) >> PGSHIFT)
+
 void
 kinit()
 {
+  for (int i = 0; i < ((PHYSTOP  - KERNBASE)>> PGSHIFT); i++) {
+    ref[i].num = 1;
+    initlock(&ref[i].lock, "ref");
+  }
   for (int i = 0; i < NCPU; i++) {
     initlock(&kmem[i].lock, "kmem");
   }
@@ -61,9 +72,18 @@ kfree(void *pa, int cpu_id)
     cpu_id = cpuid();
     pop_off();
   }
+
+  acquire(&ref[PAGEREFID(pa)].lock);
+  ref[PAGEREFID(pa)].num--;
+  if(ref[PAGEREFID(pa)].num > 0) {
+    release(&ref[PAGEREFID(pa)].lock);
+    return;
+  }
+  release(&ref[PAGEREFID(pa)].lock);
+
   // Fill with junk to catch dangling refs.
   memset(pa, 1, PGSIZE);
-
+  
   r = (struct run*)pa;
 
   acquire(&kmem[cpu_id].lock);
@@ -90,6 +110,11 @@ kalloc(void)
     kmem[cpu_id].freelist = r->next;
     release(&kmem[cpu_id].lock);
     memset((char*)r, 5, PGSIZE); // fill with junk
+
+    acquire(&ref[PAGEREFID(r)].lock);
+    ref[PAGEREFID(r)].num = 1;
+    release(&ref[PAGEREFID(r)].lock);
+
     return (void*)r;
   } else {
     release(&kmem[cpu_id].lock);
@@ -100,6 +125,11 @@ kalloc(void)
         kmem[i].freelist = r->next;
         release(&kmem[i].lock);
         memset((char*)r, 5, PGSIZE); // fill with junk
+
+        acquire(&ref[PAGEREFID(r)].lock);
+        ref[PAGEREFID(r)].num = 1;
+        release(&ref[PAGEREFID(r)].lock);
+
         return (void*)r;
       }
       release(&kmem[i].lock);
@@ -122,4 +152,12 @@ kcollect(void)
   }
   
   return amount;
+}
+
+void
+kref(void *pa)
+{
+  acquire(&ref[PAGEREFID(pa)].lock);
+  ref[PAGEREFID(pa)].num++;
+  release(&ref[PAGEREFID(pa)].lock);
 }

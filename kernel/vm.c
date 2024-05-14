@@ -317,22 +317,27 @@ uvmcopy(pagetable_t old, pagetable_t new, uint64 sz)
   pte_t *pte;
   uint64 pa, i;
   uint flags;
-  char *mem;
 
   for(i = 0; i < sz; i += PGSIZE){
     if((pte = walk(old, i, 0)) == 0)
       panic("uvmcopy: pte should exist");
     if((*pte & PTE_V) == 0)
       panic("uvmcopy: page not present");
+    
+    // only the writeable page need COW
+    if((*pte & PTE_W) != 0){
+      *pte &= ~PTE_W; // avoid write for copy on write
+      *pte |= PTE_COW; // set the COW bit
+    }
+      
     pa = PTE2PA(*pte);
     flags = PTE_FLAGS(*pte);
-    if((mem = kalloc()) == 0)
-      goto err;
-    memmove(mem, (char*)pa, PGSIZE);
-    if(mappages(new, i, PGSIZE, (uint64)mem, flags) != 0){
-      kfree(mem, -1);
+    
+    if(mappages(new, i, PGSIZE, (uint64)pa, flags) != 0){
       goto err;
     }
+
+    kref((void *)pa); // increase the reference num
   }
   return 0;
 
@@ -368,9 +373,15 @@ copyout(pagetable_t pagetable, uint64 dstva, char *src, uint64 len)
     if(va0 >= MAXVA)
       return -1;
     pte = walk(pagetable, va0, 0);
-    if(pte == 0 || (*pte & PTE_V) == 0 || (*pte & PTE_U) == 0 ||
-       (*pte & PTE_W) == 0)
+    if(pte == 0 || (*pte & PTE_V) == 0 || (*pte & PTE_U) == 0)
       return -1;
+    
+    if((*pte & PTE_W) == 0){
+      if(cow(pagetable, va0) < 0){
+        return -1;
+      }
+    }
+
     pa0 = PTE2PA(*pte);
     n = PGSIZE - (dstva - va0);
     if(n > len)
@@ -496,5 +507,43 @@ pgaccess(void *base, int len, void *mask)
   if(copyout(p->pagetable, (uint64)mask, (char *)&ans, sizeof(ans)) < 0) {
     return -1;
   }
+  return 0;
+}
+
+// deal with the copy on write trap
+int
+cow(pagetable_t pagetable, uint64 va){
+  pte_t *pte;
+  char *mem;
+  uint64 pa;
+  uint flags;
+
+  if(va >= MAXVA)
+    return -1;
+
+  if((pte = walk(pagetable, va, 0)) == 0)
+    return -1;
+
+  if((*pte & PTE_COW) == 0)
+    return -1;
+
+  *pte &= ~PTE_COW;
+  *pte |= PTE_W;
+
+  pa = PTE2PA(*pte);
+  flags = PTE_FLAGS(*pte);
+  
+  if((mem = kalloc()) == 0)
+      return -1;
+
+  memmove(mem, (char*)pa, PGSIZE);
+  
+  uvmunmap(pagetable, va, 1, 1);
+  
+  if(mappages(pagetable, va, PGSIZE, (uint64)mem, flags) != 0){
+    kfree(mem, -1);
+    return -1;
+  }
+
   return 0;
 }
