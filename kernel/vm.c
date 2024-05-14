@@ -7,6 +7,7 @@
 #include "fs.h"
 #include "spinlock.h"
 #include "proc.h"
+#include "kalloc.h"
 
 /*
  * the kernel's page table.
@@ -16,6 +17,8 @@ pagetable_t kernel_pagetable;
 extern char etext[];  // kernel.ld sets this to end of kernel code.
 
 extern char trampoline[]; // trampoline.S
+
+extern struct ref ref[]; // reference num of each page
 
 // Make a direct-map page table for the kernel.
 pagetable_t
@@ -533,6 +536,13 @@ cow(pagetable_t pagetable, uint64 va){
   pa = PTE2PA(*pte);
   flags = PTE_FLAGS(*pte);
   
+  acquire(&ref[PAGEREFID(pa)].lock);
+  if (ref[PAGEREFID(pa)].num == 1) {
+    release(&ref[PAGEREFID(pa)].lock);
+    return 0;
+  }
+  release(&ref[PAGEREFID(pa)].lock);
+
   if((mem = kalloc()) == 0)
       return -1;
 

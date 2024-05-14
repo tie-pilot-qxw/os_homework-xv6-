@@ -8,6 +8,7 @@
 #include "spinlock.h"
 #include "riscv.h"
 #include "defs.h"
+#include "kalloc.h"
 
 void freerange(void *pa_start, void *pa_end);
 
@@ -23,12 +24,8 @@ struct {
   struct run *freelist;
 } kmem[NCPU];
 
-struct {
-  struct spinlock lock;
-  uint32 num;
-} ref[(PHYSTOP  - KERNBASE)>> PGSHIFT]; // reference num of each page
+struct ref ref[(PHYSTOP  - KERNBASE)>> PGSHIFT]; // reference num of each page
 
-#define PAGEREFID(pa) (((uint64)pa - KERNBASE) >> PGSHIFT)
 
 void
 kinit()
