@@ -27,6 +27,7 @@ char* sbrk(int);
 int sleep(int);
 int sigalarm(int ticks, void (*handler)());
 int sigreturn(void);
+int symlink(const char*, const char*);
 
 struct sysinfo;
 int sysinfo(struct sysinfo *);

@@ -24,10 +24,18 @@ struct superblock {
 
 #define FSMAGIC 0x10203040
 
-#define NDIRECT 11 // num of direct block
 #define NINDIRECTPERBLOCK (BSIZE / sizeof(uint)) // num of entries in indirect block
+
+#ifdef LAB_FS
+#define NDIRECT 11 // num of direct block
 #define NINDIRECTLAYER 2 // max number of indirect layers
 #define NINDIRECT (NINDIRECTPERBLOCK + NINDIRECTPERBLOCK * NINDIRECTPERBLOCK) // num of 1-level + 2-level indirect block
+#else
+#define NDIRECT 12 // num of direct block
+#define NINDIRECTLAYER 1 // max number of indirect layers
+#define NINDIRECT NINDIRECTPERBLOCK // num of 1-level indirect block
+#endif
+
 #define MAXFILE (NDIRECT + NINDIRECT)
 
 // On-disk inode structure
