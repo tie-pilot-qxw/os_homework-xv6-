@@ -397,26 +397,55 @@ bmap(struct inode *ip, uint bn)
   bn -= NDIRECT;
 
   if(bn < NINDIRECT){
+    int layer = 1, layer_num = NINDIRECTPERBLOCK;
+    for( ; layer <= NINDIRECTLAYER; layer++, layer_num *= NINDIRECTPERBLOCK){
+      if(bn < layer_num) break;
+      bn -= layer_num;
+    }
+
     // Load indirect block, allocating if necessary.
-    if((addr = ip->addrs[NDIRECT]) == 0){
+    if((addr = ip->addrs[NDIRECT + layer - 1]) == 0){
       addr = balloc(ip->dev);
       if(addr == 0)
         return 0;
-      ip->addrs[NDIRECT] = addr;
+      ip->addrs[NDIRECT + layer - 1] = addr;
     }
-    bp = bread(ip->dev, addr);
-    a = (uint*)bp->data;
-    if((addr = a[bn]) == 0){
-      addr = balloc(ip->dev);
-      if(addr){
-        a[bn] = addr;
+
+    for(int i = 0; i < layer; i++){
+      layer_num /= NINDIRECTPERBLOCK; // number of blocks per entry in this layer
+      bp = bread(ip->dev, addr);
+      a = (uint*)bp->data;
+      if((addr = a[bn/layer_num]) == 0){
+        addr = balloc(ip->dev);
+        if(addr == 0)
+          return 0;
+        a[bn/layer_num] = addr;
         log_write(bp);
       }
+      brelse(bp);
+      bn %= layer_num;
     }
-    brelse(bp);
     return addr;
   }
   panic("bmap: out of range");
+}
+
+void
+trunc_indirect(uint addr, uint layers, uint dev) {
+  struct buf *bp;
+  uint *a;
+  bp = bread(dev, addr);
+  a = (uint*)bp->data;
+  for(int j = 0; j < NINDIRECTPERBLOCK; j++){
+    if(a[j]){
+      if(layers > 1){
+        trunc_indirect(a[j], layers - 1, dev);
+      }
+      bfree(dev, a[j]);
+      a[j]=0;
+    }
+  }
+  brelse(bp);
 }
 
 // Truncate inode (discard contents).
@@ -424,9 +453,7 @@ bmap(struct inode *ip, uint bn)
 void
 itrunc(struct inode *ip)
 {
-  int i, j;
-  struct buf *bp;
-  uint *a;
+  int i;
 
   for(i = 0; i < NDIRECT; i++){
     if(ip->addrs[i]){
@@ -435,16 +462,12 @@ itrunc(struct inode *ip)
     }
   }
 
-  if(ip->addrs[NDIRECT]){
-    bp = bread(ip->dev, ip->addrs[NDIRECT]);
-    a = (uint*)bp->data;
-    for(j = 0; j < NINDIRECT; j++){
-      if(a[j])
-        bfree(ip->dev, a[j]);
+  for(int i = NDIRECT; i < NDIRECT + NINDIRECTLAYER; i++){
+    if(ip->addrs[i]){
+      trunc_indirect(ip->addrs[i], i - NDIRECT + 1, ip->dev);
+      bfree(ip->dev, ip->addrs[i]);
+      ip->addrs[i] = 0;
     }
-    brelse(bp);
-    bfree(ip->dev, ip->addrs[NDIRECT]);
-    ip->addrs[NDIRECT] = 0;
   }
   
   ip->size = 0;
