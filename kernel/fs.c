@@ -417,8 +417,10 @@ bmap(struct inode *ip, uint bn)
       a = (uint*)bp->data;
       if((addr = a[bn/layer_num]) == 0){
         addr = balloc(ip->dev);
-        if(addr == 0)
+        if(addr == 0){
+          brelse(bp);
           return 0;
+        }
         a[bn/layer_num] = addr;
         log_write(bp);
       }
