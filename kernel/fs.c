@@ -719,3 +719,20 @@ nameiparent(char *path, char *name)
 {
   return namex(path, 1, name);
 }
+
+// Write target directory into the symbolic file dp.
+// Returns 0 on success, -1 on failure (e.g. out of disk blocks).
+int
+symlink(struct inode *dp, char *name)
+{
+  int off;
+  char de[DIRSIZ];
+
+  off = 0;
+
+  strncpy(de, name, DIRSIZ);
+  if(writei(dp, 0, (uint64)&de, off, sizeof(de)) != sizeof(de))
+    return -1;
+
+  return 0;
+}
