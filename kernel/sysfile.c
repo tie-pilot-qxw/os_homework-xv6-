@@ -323,7 +323,9 @@ sys_open(void)
       return -1;
     }
   } else {
-    if((ip = namei(path)) == 0){
+    if(omode & O_NOFOLLOW) ip = namei(path);
+    else ip = namer(path, 10);
+    if(ip == 0){
       end_op();
       return -1;
     }

@@ -736,3 +736,23 @@ symlink(struct inode *dp, char *name)
 
   return 0;
 }
+
+// read the target directory (may be recrussively) for the symbolic files.
+// return 0 when failed
+struct inode*
+namer(char *path, int depth)
+{
+  if (depth == 0) return 0;
+  struct inode *ip;
+  ip = namei(path);
+  if (ip == 0) return 0;
+  if (ip->type == T_SYMLINK) {
+    char name[DIRSIZ];
+    if (readi(ip, 0, (uint64)name, 0, sizeof(name)) != sizeof(name)) {
+      iput(ip);
+      return 0;
+    }
+    iput(ip);
+    return namer(name, depth - 1);
+  } else return ip;
+}
