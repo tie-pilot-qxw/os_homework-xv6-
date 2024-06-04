@@ -15,6 +15,7 @@
 #include "sleeplock.h"
 #include "file.h"
 #include "fcntl.h"
+#include "memlayout.h"
 
 // Fetch the nth word-sized system call argument as a file descriptor
 // and return both the descriptor and the corresponding struct file.
@@ -531,3 +532,71 @@ sys_symlink(void)
   end_op();
   return 0;
 }
+
+#ifdef LAB_MMAP
+// map the file to the memory
+uint64
+sys_mmap(void)
+{
+  void * addr;
+  size_t length;
+  int prot, flags, fd;
+  off_t offset;
+  struct file *f;
+  argaddr(0, (uint64*)&addr);
+  if (addr != 0) {
+    return -1;
+  }
+  argaddr(1, (uint64*)&length);
+  argint(2, &prot);
+  if (prot & ~(PROT_READ | PROT_WRITE | PROT_EXEC)) {
+    return -1;
+  }
+  argint(3, &flags);
+  if (flags != MAP_SHARED && flags != MAP_PRIVATE) {
+    return -1;
+  }
+  argfd(4, &fd, &f);
+  argaddr(5, (uint64*)&offset);
+  if ((prot & PROT_READ) && (!f->readable)) {
+    return -1;
+  }
+  if ((prot & PROT_WRITE) && (!f->writable)) {
+    return -1;
+  }
+
+  struct proc *p = myproc();
+  int id = p->mmapstart;
+  int pages = (length + PGSIZE - 1) / PGSIZE;
+  while(id < MMAPSZ) {
+    int freesz = p->mmap[id].freesz;
+    if (freesz >= pages) {
+      if (id == p->mmapstart) {
+        p->mmapstart = p->mmap[id + pages - 1].nextfree;
+      }
+      break;
+    }
+    id = p->mmap[id + freesz - 1].nextfree;
+  }
+  if (id >= MMAPSZ) {
+    return -1;
+  }
+  for (int i = id; i < id + pages; i++) {
+    p->mmap[i].freesz = 0;
+    p->mmap[i].nextfree = -1;
+    p->mmap[i].prot = prot;
+    p->mmap[i].flags = flags;
+    p->mmap[i].offset = offset;
+    p->mmap[i].file = f;
+  }
+  filedup(f);
+  return MMAPBG + id * PGSIZE;
+}
+
+// unmap the file
+uint64
+sys_munmap(void)
+{
+  return -1;
+}
+#endif

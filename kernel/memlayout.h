@@ -77,3 +77,7 @@ struct usyscall {
   int pid;  // Process ID
 };
 #endif
+#ifdef LAB_MMAP
+#define MMAPBG (TRAPFRAME - PGSIZE * MMAPSZ)
+#define MMAPED (TRAPFRAME)
+#endif

@@ -198,6 +198,9 @@ int             copyinstr(pagetable_t, char *, uint64, uint64);
 void            vmprint(pagetable_t);
 int             pgaccess(void *, int, void *);
 int             cow(pagetable_t, uint64);
+#ifdef LAB_MMAP
+int             mmap(struct proc *, uint64);
+#endif
 
 // plic.c
 void            plicinit(void);

@@ -24,5 +24,6 @@
 #endif
 #endif
 #define MAXPATH      128   // maximum file path name
-
-
+#ifdef LAB_MMAP
+#define MMAPSZ 16
+#endif

@@ -173,6 +173,19 @@ found:
   p->tickspassed = 0;
   p->alarmFlag = 0;
 
+  #ifdef LAB_MMAP
+  // initialize the mmap
+  p->mmapstart = 0;
+  for(int i = 0; i < MMAPSZ; i++) {
+    p->mmap[i].freesz = MMAPSZ - i;
+    p->mmap[i].nextfree = i+1;
+    p->mmap[i].prot = 0;
+    p->mmap[i].flags = 0;
+    p->mmap[i].offset = 0;
+    p->mmap[i].file = 0;
+  }
+  #endif
+
   return p;
 }
 

@@ -54,13 +54,30 @@ usertrap(void)
     // Store/AMO page fault
 
     uint64 va = PGROUNDDOWN(r_stval());
-    if(cow(p->pagetable, va) < 0){
+    if(cow(p->pagetable, va) >= 0);
+    #ifdef LAB_MMAP
+    else if (mmap(p, va) >= 0);
+    #endif
+    else {
       printf("usertrap(): unexpected scause %p pid=%d\n", r_scause(), p->pid);
       printf("            sepc=%p stval=%p\n", r_sepc(), r_stval());
       setkilled(p);
     }
 
-  } else if(r_scause() == 8){
+  } 
+  #ifdef LAB_MMAP
+  else if(r_scause() == 13) {
+    // Load page fault
+    uint64 va = PGROUNDDOWN(r_stval());
+    if(mmap(p, va) >= 0);
+    else {
+      printf("usertrap(): unexpected scause %p pid=%d\n", r_scause(), p->pid);
+      printf("            sepc=%p stval=%p\n", r_sepc(), r_stval());
+      setkilled(p);
+    }
+  }
+  #endif
+  else if(r_scause() == 8){
     // system call
 
     if(killed(p))

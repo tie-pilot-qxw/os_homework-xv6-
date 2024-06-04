@@ -81,6 +81,17 @@ struct trapframe {
 
 enum procstate { UNUSED, USED, SLEEPING, RUNNABLE, RUNNING, ZOMBIE };
 
+#ifdef LAB_MMAP
+struct mmapinfo {
+  int freesz;
+  int nextfree;
+  int prot;
+  int flags;
+  int offset;
+  struct file *file;
+};
+#endif
+
 // Per-process state
 struct proc {
   struct spinlock lock;
@@ -112,4 +123,9 @@ struct proc {
   struct trapframe *preAlarmTf; // The trapframe before the alarm handler is called
 
   struct usyscall *usyscallpage;        // share page for usyscall
+
+  #ifdef LAB_MMAP
+  struct mmapinfo mmap[MMAPSZ]; // record of the mmaped files
+  int mmapstart; // the start index of the free mmaped blocks
+  #endif
 };
