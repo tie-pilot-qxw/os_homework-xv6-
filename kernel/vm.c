@@ -572,85 +572,48 @@ mmap(struct proc *p, uint64 va) {
   if (p->mmap[id].freesz != 0) {
     return -1;
   }
-  if (p->mmap[id].flags == MAP_PRIVATE) {
-    void *mem;
-    uint flag;
-    struct file *f = p->mmap[id].file;
-    if (f == 0 || f->type != FD_INODE) {
-      return -1;
-    }
-    flag = PTE_U;
-    if ((mem = kalloc()) == 0) {
-      return -1;
-    }
-    memset(mem, 0, PGSIZE);
-    if (p->mmap[id].prot & PROT_WRITE) {
-      flag |= PTE_W;
-    }
-    if (p->mmap[id].prot & PROT_EXEC) {
-      flag |= PTE_X;
-    }
-    if (p->mmap[id].prot & PROT_READ) {
-      flag |= PTE_R;
-    }
-    if(mappages(p->pagetable, va, PGSIZE, (uint64)mem, flag | PTE_W) != 0){
-      kfree(mem, -1);
-      return -1;
-    }
-    ilock(f->ip);
-    if(readi(f->ip, 1, va, id * PGSIZE, PGSIZE) <= 0) {
-      uvmunmap(p->pagetable, va, 1, 1);
-      kfree(mem, -1);
-      iunlock(f->ip);
-      return -1;
-    }
-    
-    iunlock(f->ip);
-    if (flag != (flag | PTE_W)) {
-      pte_t *pte = walk(p->pagetable, va, 0);
-      *pte &= ~PTE_W;
-    }
-    return 0;
-  } else if (p->mmap[id].flags == MAP_SHARED) {
-    void *mem;
-    uint flag;
-    struct file *f = p->mmap[id].file;
-    if (f == 0 || f->type != FD_INODE) {
-      return -1;
-    }
-    flag = PTE_U;
-    if ((mem = kalloc()) == 0) {
-      return -1;
-    }
-    memset(mem, 0, PGSIZE);
-    if (p->mmap[id].prot & PROT_WRITE) {
-      flag |= PTE_W;
-    }
-    if (p->mmap[id].prot & PROT_EXEC) {
-      flag |= PTE_X;
-    }
-    if (p->mmap[id].prot & PROT_READ) {
-      flag |= PTE_R;
-    }
-    if(mappages(p->pagetable, va, PGSIZE, (uint64)mem, flag | PTE_W) != 0){
-      kfree(mem, -1);
-      return -1;
-    }
-    ilock(f->ip);
-    if(readi(f->ip, 1, va, id * PGSIZE, PGSIZE) <= 0) {
-      uvmunmap(p->pagetable, va, 1, 1);
-      kfree(mem, -1);
-      iunlock(f->ip);
-      return -1;
-    }
-    
-    iunlock(f->ip);
-    if (flag != (flag | PTE_W)) {
-      pte_t *pte = walk(p->pagetable, va, 0);
-      *pte &= ~PTE_W;
-    }
-    return 0;
+  void *mem;
+  uint flag;
+  struct file *f = p->mmap[id].file;
+  if (f == 0 || f->type != FD_INODE) {
+    return -1;
   }
-  return -1;
+  flag = PTE_U;
+  if ((mem = kalloc()) == 0) {
+    return -1;
+  }
+  memset(mem, 0, PGSIZE);
+  if (p->mmap[id].prot & PROT_WRITE) {
+    flag |= PTE_W;
+  }
+  if (p->mmap[id].prot & PROT_EXEC) {
+    flag |= PTE_X;
+  }
+  if (p->mmap[id].prot & PROT_READ) {
+    flag |= PTE_R;
+  }
+  if(mappages(p->pagetable, va, PGSIZE, (uint64)mem, flag | PTE_W) != 0){
+    kfree(mem, -1);
+    return -1;
+  }
+
+  begin_op();
+  ilock(f->ip);
+  if(readi(f->ip, 1, va, p->mmap[id].offset, PGSIZE) <= 0) {
+    uvmunmap(p->pagetable, va, 1, 1);
+    kfree(mem, -1);
+    iunlock(f->ip);
+    end_op();
+    return -1;
+  }
+  iunlock(f->ip);
+  end_op();
+
+  pte_t *pte = walk(p->pagetable, va, 0);
+  if (flag != (flag | PTE_W)) {
+    *pte &= ~PTE_W;
+  }
+  *pte &= ~PTE_D;
+  return 0;
 }
 #endif

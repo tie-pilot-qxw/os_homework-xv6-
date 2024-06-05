@@ -561,10 +561,11 @@ sys_mmap(void)
   if ((prot & PROT_READ) && (!f->readable)) {
     return -1;
   }
-  if ((prot & PROT_WRITE) && (!f->writable)) {
+  if ((flags != MAP_PRIVATE) && (prot & PROT_WRITE) && (!f->writable)) {
     return -1;
   }
 
+  // find the unused address space for the file
   struct proc *p = myproc();
   int id = p->mmapstart;
   int pages = (length + PGSIZE - 1) / PGSIZE;
@@ -586,7 +587,7 @@ sys_mmap(void)
     p->mmap[i].nextfree = -1;
     p->mmap[i].prot = prot;
     p->mmap[i].flags = flags;
-    p->mmap[i].offset = offset;
+    p->mmap[i].offset = offset + (i - id) * PGSIZE;
     p->mmap[i].file = f;
   }
   filedup(f);
@@ -597,6 +598,83 @@ sys_mmap(void)
 uint64
 sys_munmap(void)
 {
-  return -1;
+  uint64 addr;
+  size_t length;
+  argaddr(0, &addr);
+  argaddr(1, (uint64*)&length);
+  if (addr < MMAPBG || addr >= MMAPED || length % PGSIZE != 0) {
+    return -1;
+  }
+  struct proc *p = myproc();
+  int clear = 0;
+  int sid = (addr - MMAPBG) / PGSIZE, eid = sid + length / PGSIZE;
+  struct file *f = p->mmap[sid].file;
+
+  // must be in the same valid file and must be used blocks
+  for (int i = sid; i < eid; i++) {
+    if (p->mmap[i].file != f || p->mmap[i].nextfree != -1) {
+      return -1;
+    }
+  }
+  // can only unmap from the start or the end of the file
+  if (sid != 0 && p->mmap[sid - 1].file == f
+  && eid != MMAPSZ && p->mmap[eid].file == f) {
+    return -1;
+  }
+
+  // check whether the whole file is unmapped
+  if ((sid == 0 || p->mmap[sid - 1].file != f)
+  && (eid == MMAPSZ || f != p->mmap[eid].file)) {
+    clear = 1;
+  }
+
+  int nfree = eid;
+  while(nfree < MMAPSZ && p->mmap[nfree].freesz == 0) {
+    nfree++;
+  }
+  int exfreesz = 0;
+  if (nfree == eid) {
+    exfreesz = p->mmap[nfree].freesz;
+  }
+  for (int i = sid; i < eid; i++) {
+    uint64 va = addr + (i - sid) * PGSIZE;
+    pte_t *pte = walk(p->pagetable, va, 0);
+    // clear the mmaped pages
+    if (pte != 0 && (*pte & PTE_V)) {
+      // if the page is dirty, write it back to the file
+      if ((p->mmap[i].flags & MAP_SHARED) && (*pte & PTE_D)) {
+        begin_op();
+        ilock(f->ip);
+        if (writei(f->ip, 1, va, p->mmap[i].offset, PGSIZE) != PGSIZE) {
+          iunlock(f->ip);
+          end_op();
+          return -1;
+        }
+        iunlock(f->ip);
+        end_op();
+      }
+      uvmunmap(p->pagetable, va, 1, 1);
+    }
+    
+    p->mmap[i].file = 0;
+    p->mmap[i].flags = 0;
+    p->mmap[i].prot = 0;
+    p->mmap[i].offset = 0;
+    if (i != eid - 1) p->mmap[i].nextfree = i + 1;
+    else p->mmap[i].nextfree = nfree;
+    p->mmap[i].freesz = eid - sid + exfreesz;
+  }
+  int id = sid - 1;
+  while(id >= 0 && p->mmap[id].freesz != 0) {
+    p->mmap[id].freesz = eid - id + exfreesz;
+    id--;
+  }
+  if (clear) {
+    fileclose(f);
+  }
+  if (sid < p->mmapstart) {
+    p->mmapstart = sid;
+  }
+  return 0;
 }
 #endif
