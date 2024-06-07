@@ -643,15 +643,9 @@ sys_munmap(void)
     if (pte != 0 && (*pte & PTE_V)) {
       // if the page is dirty, write it back to the file
       if ((p->mmap[i].flags & MAP_SHARED) && (*pte & PTE_D)) {
-        begin_op();
-        ilock(f->ip);
-        if (writei(f->ip, 1, va, p->mmap[i].offset, PGSIZE) != PGSIZE) {
-          iunlock(f->ip);
-          end_op();
+        if (filewrite(f,va, PGSIZE) != PGSIZE) {
           return -1;
         }
-        iunlock(f->ip);
-        end_op();
       }
       uvmunmap(p->pagetable, va, 1, 1);
     }

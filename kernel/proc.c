@@ -6,6 +6,7 @@
 #include "proc.h"
 #include "sysinfo.h"
 #include "defs.h"
+#include "fcntl.h"
 
 struct cpu cpus[NCPU];
 
@@ -349,6 +350,14 @@ fork(void)
   // Copy the trace mask from parent to child.
   np->mask = p->mask;
 
+  // Copy the mmaped files from parent to child.
+  for (i = 0; i < MMAPSZ; i++) {
+    np->mmap[i] = p->mmap[i];
+    if (p->mmap[i].file != 0 && (i + 1 == MMAPSZ || p->mmap[i].file != p->mmap[i+1].file)) {
+      filedup(p->mmap[i].file);
+    }
+  }
+
   // Copy user memory from parent to child.
   if(uvmcopy(p->pagetable, np->pagetable, p->sz) < 0){
     freeproc(np);
@@ -421,6 +430,25 @@ exit(int status)
       struct file *f = p->ofile[fd];
       fileclose(f);
       p->ofile[fd] = 0;
+    }
+  }
+
+  // release all the mmaped files
+  for (int i = 0; i < MMAPSZ; i++) {
+    if(p->mmap[i].file == 0) continue;
+    uint64 va = MMAPBG + i * PGSIZE;
+    pte_t *pte = walk(p->pagetable, va, 0);
+    // clear the mmaped pages
+    if (pte != 0 && (*pte & PTE_V)) {
+      // if the page is dirty, write it back to the file
+      if ((p->mmap[i].flags & MAP_SHARED) && (*pte & PTE_D)) {
+        filewrite(p->mmap[i].file,va, PGSIZE);
+      }
+      uvmunmap(p->pagetable, va, 1, 1);
+    }
+    // close the file at the end of each mmaped file
+    if(i + 1 == MMAPSZ || p->mmap[i+1].file != p->mmap[i].file) {
+      fileclose(p->mmap[i].file);
     }
   }
 
