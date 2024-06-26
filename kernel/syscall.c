@@ -205,7 +205,11 @@ syscall(void)
   if(num > 0 && num < NELEM(syscalls) && syscalls[num]) {
     // Use num to lookup the system call function for num, call it,
     // and store its return value in p->trapframe->a0
-    p->trapframe->a0 = syscalls[num]();
+
+    if (num != SYS_sigreturn)
+      p->trapframe->a0 = syscalls[num]();
+    else
+      syscalls[num]();
 
     // Check the mask bit to determain whether we should print the trace information
     if((p->mask & (1 << num)) != 0) {

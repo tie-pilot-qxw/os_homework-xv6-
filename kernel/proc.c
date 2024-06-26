@@ -350,6 +350,7 @@ fork(void)
   // Copy the trace mask from parent to child.
   np->mask = p->mask;
 
+  #ifdef LAB_MMAP
   // Copy the mmaped files from parent to child.
   for (i = 0; i < MMAPSZ; i++) {
     np->mmap[i] = p->mmap[i];
@@ -357,6 +358,7 @@ fork(void)
       filedup(p->mmap[i].file);
     }
   }
+  #endif
 
   // Copy user memory from parent to child.
   if(uvmcopy(p->pagetable, np->pagetable, p->sz) < 0){
@@ -433,6 +435,7 @@ exit(int status)
     }
   }
 
+  #ifdef LAB_MMAP
   // release all the mmaped files
   for (int i = 0; i < MMAPSZ; i++) {
     if(p->mmap[i].file == 0) continue;
@@ -451,6 +454,7 @@ exit(int status)
       fileclose(p->mmap[i].file);
     }
   }
+  #endif
 
   begin_op();
   iput(p->cwd);
@@ -824,6 +828,5 @@ sigreturn(void) {
   }
   p->alarmFlag = 0;
   *p->trapframe = *p->preAlarmTf;
-  usertrapret();
   return 0;
 }
